@@ -12,7 +12,8 @@ import (
 	transmission "github.com/spnngl/transmission-exporter"
 )
 
-// RPC responses by method. Torrent 2 lacks file-count, as on Transmission 3.
+// RPC responses by method. Torrent 2 lacks file-count, as on Transmission 3,
+// and has a status Transmission doesn't have yet.
 // Speed limits are in kB/s, some with a fraction, as on Transmission 4.1.
 var rpcResponses = map[string]string{
 	"session-get": `{"result":"success","arguments":{"version":"4.1.0","download-dir":"/downloads","download-dir-free-space":1024,
@@ -20,10 +21,10 @@ var rpcResponses = map[string]string{
 	"session-stats": `{"result":"success","arguments":{"torrentCount":2,
 		"current-stats":{"downloadedBytes":10},"cumulative-stats":{"downloadedBytes":20}}}`,
 	"torrent-get": `{"result":"success","arguments":{"torrents":[
-		{"id":1,"name":"a","file-count":3,"totalSize":5000000000,"trackerStats":[
+		{"id":1,"name":"a","status":6,"file-count":3,"totalSize":5000000000,"trackerStats":[
 			{"host":"t.example:443","downloadCount":2,"leecherCount":1,"seederCount":4},
 			{"host":"t.example:443","downloadCount":5,"leecherCount":1,"seederCount":4}]},
-		{"id":2,"name":"b"}]}}`,
+		{"id":2,"name":"b","status":7}]}}`,
 }
 
 func fakeTransmission(t *testing.T) *transmission.Client {
@@ -73,6 +74,10 @@ func TestCollectors(t *testing.T) {
 	reg.MustRegister(NewTorrentCollector(client), NewSessionCollector(client), NewSessionStatsCollector(client))
 
 	want := `
+# HELP transmission_torrent_status Status of a torrent, always 1: stopped, check_pending, checking, download_pending, downloading, seed_pending or seeding
+# TYPE transmission_torrent_status gauge
+transmission_torrent_status{id="1",name="a",status="seeding"} 1
+transmission_torrent_status{id="2",name="b",status="unknown"} 1
 # HELP transmission_torrent_files_total The total number of files in a torrent
 # TYPE transmission_torrent_files_total gauge
 transmission_torrent_files_total{id="1",name="a"} 3
@@ -98,6 +103,7 @@ transmission_speed_limit_down_bytes{enabled="1"} 100000
 transmission_alt_speed_down_bytes{enabled="0"} 50000
 `
 	if err := testutil.GatherAndCompare(reg, strings.NewReader(want),
+		"transmission_torrent_status",
 		"transmission_torrent_files_total",
 		"transmission_torrent_downloads_total",
 		"transmission_torrent_total_size",
