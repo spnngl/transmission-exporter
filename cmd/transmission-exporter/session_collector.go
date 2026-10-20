@@ -184,13 +184,13 @@ func (sc *SessionCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(
 		sc.SpeedLimitDown,
 		prometheus.GaugeValue,
-		float64(session.SpeedLimitDown),
+		session.SpeedLimitDown,
 		boolToString(session.SpeedLimitDownEnabled),
 	)
 	ch <- prometheus.MustNewConstMetric(
 		sc.SpeedLimitUp,
 		prometheus.GaugeValue,
-		float64(session.SpeedLimitUp),
+		session.SpeedLimitUp,
 		boolToString(session.SpeedLimitUpEnabled),
 	)
 	ch <- prometheus.MustNewConstMetric(
