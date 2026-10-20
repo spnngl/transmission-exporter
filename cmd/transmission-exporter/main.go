@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -42,9 +43,9 @@ func (Config) Version() string {
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("no .env present")
+	// .env is optional; one that can't be read is a configuration error.
+	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		log.Fatalf("load .env: %v", err)
 	}
 
 	c := Config{
