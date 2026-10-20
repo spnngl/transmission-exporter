@@ -39,8 +39,3 @@ vet:
 .PHONY: lint
 lint:
 	golangci-lint run
-
-.PHONY: dashboards
-dashboards:
-	jsonnet fmt -i dashboards/transmission.jsonnet
-	jsonnet -J dashboards/vendor -m dashboards -e "(import 'dashboards/transmission.jsonnet').grafanaDashboards"

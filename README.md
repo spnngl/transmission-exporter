@@ -50,6 +50,10 @@ Your prometheus instance will start scraping the metrics automatically. (if conf
 
     docker compose -f examples/docker-compose.yml up
 
+### Grafana
+
+Import [dashboards/transmission.json](dashboards/transmission.json).
+
 ### Development
 
     make check
