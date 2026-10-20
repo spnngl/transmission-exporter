@@ -1,6 +1,7 @@
 package transmission
 
-// Session information about the current transmission session
+// Session information about the current transmission session. Speed limits
+// are float64: Transmission 4.1 sends them with a fraction (100.0).
 type Session struct {
 	AltSpeedDown          int     `json:"alt-speed-down"`
 	AltSpeedEnabled       bool    `json:"alt-speed-enabled"`
@@ -17,9 +18,9 @@ type Session struct {
 	SeedQueueSize         int     `json:"seed-queue-size"`
 	SeedRatioLimit        float64 `json:"seedRatioLimit"`
 	SeedRatioLimited      bool    `json:"seedRatioLimited"`
-	SpeedLimitDown        int     `json:"speed-limit-down"`
+	SpeedLimitDown        float64 `json:"speed-limit-down"`
 	SpeedLimitDownEnabled bool    `json:"speed-limit-down-enabled"`
-	SpeedLimitUp          int     `json:"speed-limit-up"`
+	SpeedLimitUp          float64 `json:"speed-limit-up"`
 	SpeedLimitUpEnabled   bool    `json:"speed-limit-up-enabled"`
 	Version               string  `json:"version"`
 }

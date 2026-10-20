@@ -13,8 +13,10 @@ import (
 )
 
 // RPC responses by method. Torrent 2 lacks file-count, as on Transmission 3.
+// Speed limits have a fraction, as on Transmission 4.1.
 var rpcResponses = map[string]string{
-	"session-get": `{"result":"success","arguments":{"version":"4.0.6","download-dir":"/downloads","download-dir-free-space":1024}}`,
+	"session-get": `{"result":"success","arguments":{"version":"4.1.0","download-dir":"/downloads","download-dir-free-space":1024,
+		"speed-limit-down":100.0,"speed-limit-down-enabled":true}}`,
 	"session-stats": `{"result":"success","arguments":{"torrentCount":2,
 		"current-stats":{"downloadedBytes":10},"cumulative-stats":{"downloadedBytes":20}}}`,
 	"torrent-get": `{"result":"success","arguments":{"torrents":[
@@ -88,6 +90,9 @@ transmission_session_stats_downloaded_bytes{type="current"} 10
 # HELP transmission_free_space Free space left on device to download to
 # TYPE transmission_free_space gauge
 transmission_free_space{download_dir="/downloads",incomplete_dir=""} 1024
+# HELP transmission_speed_limit_down_bytes Max global download speed
+# TYPE transmission_speed_limit_down_bytes gauge
+transmission_speed_limit_down_bytes{enabled="1"} 100
 `
 	if err := testutil.GatherAndCompare(reg, strings.NewReader(want),
 		"transmission_torrent_files_total",
@@ -95,6 +100,7 @@ transmission_free_space{download_dir="/downloads",incomplete_dir=""} 1024
 		"transmission_torrent_total_size",
 		"transmission_session_stats_downloaded_bytes",
 		"transmission_free_space",
+		"transmission_speed_limit_down_bytes",
 	); err != nil {
 		t.Fatal(err)
 	}
