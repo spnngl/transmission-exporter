@@ -44,8 +44,8 @@ func NewTorrentCollector(client *transmission.Client) *TorrentCollector {
 
 		Status: prometheus.NewDesc(
 			namespace+collectorNamespace+"status",
-			"Status of a torrent",
-			[]string{"id", "name"},
+			"Status of a torrent, always 1: stopped, check_pending, checking, download_pending, downloading, seed_pending or seeding",
+			[]string{"id", "name", "status"},
 			nil,
 		),
 		Added: prometheus.NewDesc(
@@ -177,8 +177,8 @@ func (tc *TorrentCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(
 			tc.Status,
 			prometheus.GaugeValue,
-			float64(t.Status),
-			id, t.Name,
+			1,
+			id, t.Name, t.Status.String(),
 		)
 		ch <- prometheus.MustNewConstMetric(
 			tc.Added,

@@ -11,7 +11,7 @@ type (
 	Torrent struct {
 		ID                 int           `json:"id"`
 		Name               string        `json:"name"`
-		Status             int           `json:"status"`
+		Status             TorrentStatus `json:"status"`
 		Added              int64         `json:"addedDate"`
 		IsFinished         bool          `json:"isFinished"`
 		PercentDone        float64       `json:"percentDone"`
@@ -27,6 +27,10 @@ type (
 		FileCount *int `json:"file-count"`
 	}
 
+	// TorrentStatus is what a torrent is doing: tr_torrent_activity in
+	// Transmission's libtransmission/transmission.h.
+	TorrentStatus int
+
 	// TrackerStat has stats about the torrent's tracker
 	TrackerStat struct {
 		Host          string `json:"host"`
@@ -35,6 +39,25 @@ type (
 		SeederCount   int    `json:"seederCount"`
 	}
 )
+
+// torrentStatuses are the TorrentStatus names, by value.
+var torrentStatuses = [...]string{
+	"stopped",
+	"check_pending",
+	"checking",
+	"download_pending",
+	"downloading",
+	"seed_pending",
+	"seeding",
+}
+
+// String is the status name, or "unknown" for one added after Transmission 4.
+func (s TorrentStatus) String() string {
+	if s < 0 || int(s) >= len(torrentStatuses) {
+		return "unknown"
+	}
+	return torrentStatuses[s]
+}
 
 var torrentFields = func() []string {
 	t := reflect.TypeFor[Torrent]()
