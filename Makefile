@@ -1,8 +1,12 @@
-GO ?= GO111MODULE=on CGO_ENABLED=0 go
-PACKAGES = $(shell go list ./... | grep -v /vendor/)
+GO ?= go
+export CGO_ENABLED = 0
 
 .PHONY: all
 all: install
+
+# Every check CI runs; lint includes gofmt.
+.PHONY: check
+check: lint tidy-check vet test build
 
 .PHONY: clean
 clean:
@@ -16,20 +20,25 @@ install:
 build:
 	$(GO) build -v ./cmd/transmission-exporter
 
+.PHONY: test
+test:
+	CGO_ENABLED=1 $(GO) test -race ./...
+
+.PHONY: tidy-check
+tidy-check:
+	$(GO) mod tidy -diff
+
 .PHONY: fmt
 fmt:
-	$(GO) fmt $(PACKAGES)
+	$(GO) fmt ./...
 
 .PHONY: vet
 vet:
-	$(GO) vet $(PACKAGES)
+	$(GO) vet ./...
 
 .PHONY: lint
 lint:
-	@which golint > /dev/null; if [ $$? -ne 0 ]; then \
-		$(GO) get -u golang.org/x/lint/golint; \
-	fi
-	for PKG in $(PACKAGES); do golint -set_exit_status $$PKG || exit 1; done;
+	golangci-lint run
 
 .PHONY: dashboards
 dashboards:
