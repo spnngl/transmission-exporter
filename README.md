@@ -6,6 +6,13 @@ Fork of [metalmatze/transmission-exporter](https://github.com/metalmatze/transmi
 
 ### Installation
 
+Each [release](https://github.com/spnngl/transmission-exporter/releases) has a deb and an rpm for amd64 and arm64, with the commands to verify them in its notes. Install one with:
+
+    $ sudo apt install ./transmission-exporter_<version>_amd64.deb
+    $ sudo dnf install ./transmission-exporter-<version>-1.x86_64.rpm
+
+Or build it:
+
     $ go install github.com/spnngl/transmission-exporter/cmd/transmission-exporter@latest
 
 ### Configuration
