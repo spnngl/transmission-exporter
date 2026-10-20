@@ -2,8 +2,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	arg "github.com/alexflint/go-arg"
@@ -16,6 +21,11 @@ import (
 // version is the release, set by the release build:
 // go build -ldflags "-X main.version=<version>".
 var version = "dev"
+
+// shutdownTimeout bounds the scrapes in flight at shutdown: two RPC requests
+// (a session id renewal and its retry) of 10 s each, within Kubernetes'
+// default 30 s grace period.
+const shutdownTimeout = 20 * time.Second
 
 // Config gets its content from env and passes it on to different packages
 type Config struct {
@@ -73,7 +83,29 @@ func main() {
 	})
 
 	srv := &http.Server{Addr: c.WebAddr, ReadHeaderTimeout: 10 * time.Second}
-	log.Fatal(srv.ListenAndServe())
+
+	// On SIGTERM (docker stop, Kubernetes) or SIGINT: stop accepting scrapes,
+	// finish those in flight, exit 0. stop() restores the default handling,
+	// so a second signal kills at once.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	stopped := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		stop()
+		log.Println("shutting down")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("shutdown: %v", err)
+		}
+		close(stopped)
+	}()
+
+	// ListenAndServe returns as Shutdown starts: wait for it to finish.
+	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
+	<-stopped
 }
 
 func boolToString(b bool) string {
