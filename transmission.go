@@ -1,15 +1,24 @@
+// Package transmission is a client of the Transmission RPC API, limited to what the exporter reads.
 package transmission
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"fmt"
+	"io"
 	"net/http"
-	"strings"
+	"sync"
+	"time"
 )
 
-const endpoint = "/transmission/rpc/"
+const (
+	endpoint        = "/transmission/rpc/"
+	sessionIDHeader = "X-Transmission-Session-Id"
+	// Below Prometheus' default scrape timeout, so a hung Transmission fails the scrape.
+	requestTimeout = 10 * time.Second
+)
 
 type (
 	// User to authenticate with Transmission
@@ -17,187 +26,123 @@ type (
 		Username string
 		Password string
 	}
-	// Client connects to transmission via HTTP
+	// Client connects to transmission via HTTP. Safe for concurrent use: the
+	// collectors share one.
 	Client struct {
-		URL   string
-		token string
+		URL  string
+		User *User
 
-		User   *User
-		client http.Client
+		client    http.Client
+		mu        sync.Mutex
+		sessionID string // guarded by mu
+	}
+
+	request struct {
+		Method    string            `json:"method"`
+		Arguments *requestArguments `json:"arguments,omitempty"`
+	}
+	requestArguments struct {
+		Fields []string `json:"fields"`
+	}
+	response[T any] struct {
+		Arguments T      `json:"arguments"`
+		Result    string `json:"result"`
 	}
 )
 
-// New create new transmission torrent
+// New creates a Client for the Transmission at url
 func New(url string, user *User) *Client {
 	return &Client{
-		URL:  url + endpoint,
-		User: user,
+		URL:    url + endpoint,
+		User:   user,
+		client: http.Client{Timeout: requestTimeout},
 	}
 }
 
-func (c *Client) post(body []byte) ([]byte, error) {
-	authRequest, err := c.authRequest("POST", body)
-	if err != nil {
-		return make([]byte, 0), err
-	}
-
-	res, err := c.client.Do(authRequest)
-	if err != nil {
-		return make([]byte, 0), err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode == http.StatusUnauthorized {
-		return make([]byte, 0), errors.New("authorization failed, check your username and password and make sure the ip is whitelisted")
-	}
-
-	if res.StatusCode == http.StatusConflict {
-		c.getToken()
-		authRequest, err := c.authRequest("POST", body)
-		if err != nil {
-			return make([]byte, 0), err
-		}
-		res, err = c.client.Do(authRequest)
-		if err != nil {
-			return make([]byte, 0), err
-		}
-	}
-
-	resBody, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return make([]byte, 0), err
-	}
-	return resBody, nil
-}
-
-func (c *Client) getToken() error {
-	req, err := http.NewRequest("POST", c.URL, strings.NewReader(""))
-	if err != nil {
-		return err
-	}
-
-	if c.User != nil {
-		req.SetBasicAuth(c.User.Username, c.User.Password)
-	}
-
-	res, err := c.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	c.token = res.Header.Get("X-Transmission-Session-Id")
-	return nil
-}
-
-func (c *Client) authRequest(method string, body []byte) (*http.Request, error) {
-	if c.token == "" {
-		err := c.getToken()
-		if err != nil {
-			return nil, err
-		}
-	}
-	req, err := http.NewRequest(method, c.URL, bytes.NewReader(body))
+// call sends req and decodes the arguments of its response.
+func call[T any](c *Client, req request) (*T, error) {
+	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("X-Transmission-Session-Id", c.token)
+
+	resBody, err := c.post(body)
+	if err != nil {
+		return nil, err
+	}
+
+	var res response[T]
+	if err := json.Unmarshal(resBody, &res); err != nil {
+		return nil, err
+	}
+	if res.Result != "success" {
+		return nil, fmt.Errorf("%s: %s", req.Method, res.Result)
+	}
+	return &res.Arguments, nil
+}
+
+func (c *Client) post(body []byte) ([]byte, error) {
+	res, err := c.do(body)
+	if err != nil {
+		return nil, err
+	}
+
+	// 409: the session id is missing or expired, the response carries the current one.
+	if res.StatusCode == http.StatusConflict {
+		_ = res.Body.Close()
+		c.mu.Lock()
+		c.sessionID = res.Header.Get(sessionIDHeader)
+		c.mu.Unlock()
+		if res, err = c.do(body); err != nil {
+			return nil, err
+		}
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	switch res.StatusCode {
+	case http.StatusOK:
+		return io.ReadAll(res.Body)
+	case http.StatusUnauthorized:
+		return nil, errors.New("authorization failed, check your username and password and make sure the ip is whitelisted")
+	default:
+		return nil, fmt.Errorf("unexpected status %s", res.Status)
+	}
+}
+
+func (c *Client) do(body []byte) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.URL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	req.Header.Set(sessionIDHeader, c.sessionID)
+	c.mu.Unlock()
 
 	if c.User != nil {
 		req.SetBasicAuth(c.User.Username, c.User.Password)
 	}
 
-	return req, nil
+	return c.client.Do(req)
 }
 
 // GetTorrents get a list of torrents
 func (c *Client) GetTorrents() ([]Torrent, error) {
-	cmd := TorrentCommand{
-		Method: "torrent-get",
-		Arguments: TorrentArguments{
-			Fields: []string{
-				"id",
-				"name",
-				"hashString",
-				"status",
-				"addedDate",
-				"leftUntilDone",
-				"eta",
-				"uploadRatio",
-				"rateDownload",
-				"rateUpload",
-				"downloadDir",
-				"isFinished",
-				"percentDone",
-				"seedRatioMode",
-				"error",
-				"errorString",
-				"files",
-				"fileStats",
-				"peers",
-				"trackers",
-				"trackerStats",
-				"peersConnected",
-				"peersGettingFromUs",
-				"totalSize",
-				"uploadedEver",
-			},
-		},
-	}
-
-	req, err := json.Marshal(&cmd)
+	args, err := call[struct {
+		Torrents []Torrent `json:"torrents"`
+	}](c, request{Method: "torrent-get", Arguments: &requestArguments{Fields: torrentFields}})
 	if err != nil {
 		return nil, err
 	}
-
-	resp, err := c.post(req)
-	if err != nil {
-		return nil, err
-	}
-
-	var out TorrentCommand
-	if err := json.Unmarshal(resp, &out); err != nil {
-		return nil, err
-	}
-
-	return out.Arguments.Torrents, nil
+	return args.Torrents, nil
 }
 
 // GetSession gets the current session from transmission
 func (c *Client) GetSession() (*Session, error) {
-	req, err := json.Marshal(SessionCommand{Method: "session-get"})
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.post(req)
-	if err != nil {
-		return nil, err
-	}
-
-	var cmd SessionCommand
-	if err := json.Unmarshal(resp, &cmd); err != nil {
-		return nil, err
-	}
-
-	return &cmd.Session, nil
+	return call[Session](c, request{Method: "session-get"})
 }
 
 // GetSessionStats gets stats on the current & cumulative session
 func (c *Client) GetSessionStats() (*SessionStats, error) {
-	req, err := json.Marshal(SessionCommand{Method: "session-stats"})
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.post(req)
-	if err != nil {
-		return nil, err
-	}
-
-	var cmd SessionStatsCmd
-	if err := json.Unmarshal(resp, &cmd); err != nil {
-		return nil, err
-	}
-
-	return &cmd.SessionStats, nil
+	return call[SessionStats](c, request{Method: "session-stats"})
 }

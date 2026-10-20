@@ -4,8 +4,8 @@ import (
 	"log"
 	"strconv"
 
-	transmission "github.com/metalmatze/transmission-exporter"
 	"github.com/prometheus/client_golang/prometheus"
+	transmission "github.com/spnngl/transmission-exporter"
 )
 
 const (
@@ -161,6 +161,7 @@ func (tc *TorrentCollector) Collect(ch chan<- prometheus.Metric) {
 	torrents, err := tc.client.GetTorrents()
 	if err != nil {
 		log.Printf("failed to get torrents: %v", err)
+		ch <- prometheus.NewInvalidMetric(tc.Status, err)
 		return
 	}
 
@@ -185,12 +186,14 @@ func (tc *TorrentCollector) Collect(ch chan<- prometheus.Metric) {
 			float64(t.Added),
 			id, t.Name,
 		)
-		ch <- prometheus.MustNewConstMetric(
-			tc.Files,
-			prometheus.GaugeValue,
-			float64(len(t.Files)),
-			id, t.Name,
-		)
+		if t.FileCount != nil {
+			ch <- prometheus.MustNewConstMetric(
+				tc.Files,
+				prometheus.GaugeValue,
+				float64(*t.FileCount),
+				id, t.Name,
+			)
+		}
 		ch <- prometheus.MustNewConstMetric(
 			tc.Finished,
 			prometheus.GaugeValue,
@@ -246,14 +249,14 @@ func (tc *TorrentCollector) Collect(ch chan<- prometheus.Metric) {
 			id, t.Name,
 		)
 
+		// One series per host: sum the downloads of its announce URLs.
 		tstats := make(map[string]transmission.TrackerStat)
-
 		for _, tracker := range t.TrackerStats {
 			if tr, exists := tstats[tracker.Host]; exists {
 				tr.DownloadCount += tracker.DownloadCount
-			} else {
-				tstats[tracker.Host] = tracker
+				tracker = tr
 			}
+			tstats[tracker.Host] = tracker
 		}
 
 		for _, tracker := range tstats {

@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/metalmatze/transmission-exporter"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/spnngl/transmission-exporter"
 )
 
 // SessionStatsCollector exposes SessionStats as metrics
@@ -103,6 +103,11 @@ func (sc *SessionStatsCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- sc.TorrentsTotal
 	ch <- sc.TorrentsActive
 	ch <- sc.TorrentsPaused
+	ch <- sc.Downloaded
+	ch <- sc.Uploaded
+	ch <- sc.FilesAdded
+	ch <- sc.ActiveTime
+	ch <- sc.SessionCount
 }
 
 // Collect implements the prometheus.Collector interface
@@ -110,6 +115,7 @@ func (sc *SessionStatsCollector) Collect(ch chan<- prometheus.Metric) {
 	stats, err := sc.client.GetSessionStats()
 	if err != nil {
 		log.Printf("failed to get session stats: %v", err)
+		ch <- prometheus.NewInvalidMetric(sc.TorrentsTotal, err)
 		return
 	}
 

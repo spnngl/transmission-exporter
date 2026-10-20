@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/metalmatze/transmission-exporter"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/spnngl/transmission-exporter"
 )
 
 // SessionCollector exposes session metrics
@@ -126,6 +126,7 @@ func (sc *SessionCollector) Collect(ch chan<- prometheus.Metric) {
 	session, err := sc.client.GetSession()
 	if err != nil {
 		log.Printf("failed to get session: %v", err)
+		ch <- prometheus.NewInvalidMetric(sc.Version, err)
 		return
 	}
 
