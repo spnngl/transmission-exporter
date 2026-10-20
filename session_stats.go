@@ -1,12 +1,6 @@
 package transmission
 
 type (
-	// SessionStatsCmd is the root command to interact with Transmission via RPC
-	SessionStatsCmd struct {
-		SessionStats `json:"arguments"`
-		Result       string `json:"result"`
-	}
-
 	// SessionStats contains information about the current & cumulative session
 	SessionStats struct {
 		DownloadSpeed      int64             `json:"downloadSpeed"`
