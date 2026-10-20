@@ -13,6 +13,10 @@ import (
 	transmission "github.com/spnngl/transmission-exporter"
 )
 
+// version is the release, set by the release build:
+// go build -ldflags "-X main.version=<version>".
+var version = "dev"
+
 // Config gets its content from env and passes it on to different packages
 type Config struct {
 	TransmissionAddr     string `arg:"env:TRANSMISSION_ADDR"`
@@ -22,9 +26,12 @@ type Config struct {
 	WebPath              string `arg:"env:WEB_PATH"`
 }
 
-func main() {
-	log.Println("starting transmission-exporter")
+// Version is what --version prints (go-arg's Versioned).
+func (Config) Version() string {
+	return "transmission-exporter " + version
+}
 
+func main() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("no .env present")
@@ -37,6 +44,7 @@ func main() {
 	}
 
 	arg.MustParse(&c)
+	log.Println("starting transmission-exporter", version)
 
 	var user *transmission.User
 	if c.TransmissionUsername != "" && c.TransmissionPassword != "" {
