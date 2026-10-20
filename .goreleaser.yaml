@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+# Builds the deb and rpm of each architecture into dist/. Publishing is release.yml's job, after
+# it checked them, so nothing here writes a release, checksums or a changelog.
+version: 2
+
+builds:
+  - main: ./cmd/transmission-exporter
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    # Reproducible: the same commit builds the same binary.
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats:
+      - none
+
+nfpms:
+  - file_name_template: "{{ .ConventionalFileName }}"
+    formats:
+      - deb
+      - rpm
+    maintainer: Lola Delannoy <lola.2lannoy@gmail.com>
+    description: |-
+      Prometheus exporter for Transmission
+      Serves the torrent, session and session statistics metrics of a
+      Transmission daemon, read from its RPC API, for Prometheus to scrape.
+    homepage: https://github.com/spnngl/transmission-exporter
+    license: MIT
+    section: net
+    mtime: "{{ .CommitDate }}"
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/transmission-exporter/copyright
+        packager: deb
+        file_info:
+          mode: 0644
+      - src: LICENSE
+        dst: /usr/share/licenses/transmission-exporter/LICENSE
+        type: license
+        packager: rpm
+        file_info:
+          mode: 0644
+
+checksum:
+  disable: true
+changelog:
+  disable: true
+release:
+  disable: true
