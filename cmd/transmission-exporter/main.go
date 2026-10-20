@@ -54,11 +54,15 @@ func main() {
 		TransmissionAddr: "http://localhost:9091",
 	}
 
-	arg.MustParse(&c)
+	p := arg.MustParse(&c)
+	// Half the credentials would only show as 401s at scrape time.
+	if (c.TransmissionUsername == "") != (c.TransmissionPassword == "") {
+		p.Fail("set both TRANSMISSION_USERNAME and TRANSMISSION_PASSWORD, or neither")
+	}
 	log.Println("starting transmission-exporter", version)
 
 	var user *transmission.User
-	if c.TransmissionUsername != "" && c.TransmissionPassword != "" {
+	if c.TransmissionUsername != "" {
 		user = &transmission.User{
 			Username: c.TransmissionUsername,
 			Password: c.TransmissionPassword,
