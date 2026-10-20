@@ -13,10 +13,10 @@ import (
 )
 
 // RPC responses by method. Torrent 2 lacks file-count, as on Transmission 3.
-// Speed limits have a fraction, as on Transmission 4.1.
+// Speed limits are in kB/s, some with a fraction, as on Transmission 4.1.
 var rpcResponses = map[string]string{
 	"session-get": `{"result":"success","arguments":{"version":"4.1.0","download-dir":"/downloads","download-dir-free-space":1024,
-		"speed-limit-down":100.0,"speed-limit-down-enabled":true}}`,
+		"speed-limit-down":100.0,"speed-limit-down-enabled":true,"alt-speed-down":50}}`,
 	"session-stats": `{"result":"success","arguments":{"torrentCount":2,
 		"current-stats":{"downloadedBytes":10},"cumulative-stats":{"downloadedBytes":20}}}`,
 	"torrent-get": `{"result":"success","arguments":{"torrents":[
@@ -90,9 +90,12 @@ transmission_session_stats_downloaded_bytes{type="current"} 10
 # HELP transmission_free_space Free space left on device to download to
 # TYPE transmission_free_space gauge
 transmission_free_space{download_dir="/downloads",incomplete_dir=""} 1024
-# HELP transmission_speed_limit_down_bytes Max global download speed
+# HELP transmission_speed_limit_down_bytes Max global download speed, in bytes per second
 # TYPE transmission_speed_limit_down_bytes gauge
-transmission_speed_limit_down_bytes{enabled="1"} 100
+transmission_speed_limit_down_bytes{enabled="1"} 100000
+# HELP transmission_alt_speed_down_bytes Alternative max global download speed, in bytes per second
+# TYPE transmission_alt_speed_down_bytes gauge
+transmission_alt_speed_down_bytes{enabled="0"} 50000
 `
 	if err := testutil.GatherAndCompare(reg, strings.NewReader(want),
 		"transmission_torrent_files_total",
@@ -101,6 +104,7 @@ transmission_speed_limit_down_bytes{enabled="1"} 100
 		"transmission_session_stats_downloaded_bytes",
 		"transmission_free_space",
 		"transmission_speed_limit_down_bytes",
+		"transmission_alt_speed_down_bytes",
 	); err != nil {
 		t.Fatal(err)
 	}
