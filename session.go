@@ -1,11 +1,11 @@
 package transmission
 
-// Session information about the current transmission session. Speed limits
-// are float64: Transmission 4.1 sends them with a fraction (100.0).
+// Session information about the current transmission session. Speed limits,
+// in kB/s, are float64: Transmission 4.1 sends some with a fraction (100.0).
 type Session struct {
-	AltSpeedDown          int     `json:"alt-speed-down"`
+	AltSpeedDown          float64 `json:"alt-speed-down"`
 	AltSpeedEnabled       bool    `json:"alt-speed-enabled"`
-	AltSpeedUp            int     `json:"alt-speed-up"`
+	AltSpeedUp            float64 `json:"alt-speed-up"`
 	CacheSizeMB           int     `json:"cache-size-mb"`
 	DownloadDir           string  `json:"download-dir"`
 	DownloadDirFreeSpace  int64   `json:"download-dir-free-space"`

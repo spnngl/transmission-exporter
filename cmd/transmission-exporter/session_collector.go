@@ -7,6 +7,10 @@ import (
 	"github.com/spnngl/transmission-exporter"
 )
 
+// kilo is Transmission's speed unit: the RPC sends speeds in kB/s, with
+// units.speed-bytes = 1000 (docs/rpc-spec.md).
+const kilo = 1000
+
 // SessionCollector exposes session metrics
 type SessionCollector struct {
 	client *transmission.Client
@@ -31,14 +35,14 @@ func NewSessionCollector(client *transmission.Client) *SessionCollector {
 		client: client,
 
 		AltSpeedDown: prometheus.NewDesc(
-			namespace+"alt_speed_down",
-			"Alternative max global download speed",
+			namespace+"alt_speed_down_bytes",
+			"Alternative max global download speed, in bytes per second",
 			[]string{"enabled"},
 			nil,
 		),
 		AltSpeedUp: prometheus.NewDesc(
-			namespace+"alt_speed_up",
-			"Alternative max global upload speed",
+			namespace+"alt_speed_up_bytes",
+			"Alternative max global upload speed, in bytes per second",
 			[]string{"enabled"},
 			nil,
 		),
@@ -86,13 +90,13 @@ func NewSessionCollector(client *transmission.Client) *SessionCollector {
 		),
 		SpeedLimitDown: prometheus.NewDesc(
 			namespace+"speed_limit_down_bytes",
-			"Max global download speed",
+			"Max global download speed, in bytes per second",
 			[]string{"enabled"},
 			nil,
 		),
 		SpeedLimitUp: prometheus.NewDesc(
 			namespace+"speed_limit_up_bytes",
-			"Max global upload speed",
+			"Max global upload speed, in bytes per second",
 			[]string{"enabled"},
 			nil,
 		),
@@ -133,13 +137,13 @@ func (sc *SessionCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(
 		sc.AltSpeedDown,
 		prometheus.GaugeValue,
-		float64(session.AltSpeedDown),
+		session.AltSpeedDown*kilo,
 		boolToString(session.AltSpeedEnabled),
 	)
 	ch <- prometheus.MustNewConstMetric(
 		sc.AltSpeedUp,
 		prometheus.GaugeValue,
-		float64(session.AltSpeedUp),
+		session.AltSpeedUp*kilo,
 		boolToString(session.AltSpeedEnabled),
 	)
 	ch <- prometheus.MustNewConstMetric(
@@ -184,13 +188,13 @@ func (sc *SessionCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(
 		sc.SpeedLimitDown,
 		prometheus.GaugeValue,
-		session.SpeedLimitDown,
+		session.SpeedLimitDown*kilo,
 		boolToString(session.SpeedLimitDownEnabled),
 	)
 	ch <- prometheus.MustNewConstMetric(
 		sc.SpeedLimitUp,
 		prometheus.GaugeValue,
-		session.SpeedLimitUp,
+		session.SpeedLimitUp*kilo,
 		boolToString(session.SpeedLimitUpEnabled),
 	)
 	ch <- prometheus.MustNewConstMetric(
