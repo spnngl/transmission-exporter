@@ -1,17 +1,12 @@
-# Transmission Exporter for Prometheus [![Build Status](https://cloud.drone.io/api/badges/metalmatze/transmission-exporter/status.svg)](https://cloud.drone.io/metalmatze/transmission-exporter)
-
-[![Docker Pulls](https://img.shields.io/docker/pulls/metalmatze/transmission-exporter.svg?maxAge=604800)](https://hub.docker.com/r/metalmatze/transmission-exporter)
-[![Go Report Card](https://goreportcard.com/badge/github.com/metalmatze/transmission-exporter)](https://goreportcard.com/report/github.com/metalmatze/transmission-exporter)
+# Transmission Exporter for Prometheus [![ci](https://github.com/spnngl/transmission-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/spnngl/transmission-exporter/actions/workflows/ci.yml)
 
 Prometheus exporter for [Transmission](https://transmissionbt.com/) metrics, written in Go.
 
-# LOOKING FOR MAINTAINERS
-I don't use this exporter anymore and I'd be happy if others would want to take over and maintain it in the future!  
-Write me a DM via [Twitter](https://twitter.com/metalmatze)!
+Fork of [metalmatze/transmission-exporter](https://github.com/metalmatze/transmission-exporter), which is no longer maintained.
 
 ### Installation
 
-    $ go get github.com/metalmatze/transmission-exporter
+    $ go install github.com/spnngl/transmission-exporter/cmd/transmission-exporter@latest
 
 ### Configuration
 
@@ -23,14 +18,16 @@ ENV Variable | Description
 | TRANSMISSION_USERNAME | Transmission username, no default |
 | TRANSMISSION_PASSWORD | Transmission password, no default |
 
-### Docker
+### Container
 
-    docker pull metalmatze/transmission-exporter
-    docker run -d -p 19091:19091 metalmatze/transmission-exporter
+The image is built in [spnngl/images](https://github.com/spnngl/images).
+
+    docker pull ghcr.io/spnngl/images/transmission-exporter
+    docker run -d -p 19091:19091 ghcr.io/spnngl/images/transmission-exporter
 
 ### Kubernetes (Prometheus)
 
-A sample kubernetes manifest is available in [example/kubernetes](https://github.com/metalmatze/transmission-exporter/blob/master/examples/kubernetes/docker-compose.yml)
+A sample kubernetes manifest is available in [examples/kubernetes](examples/kubernetes/transmission.yml)
 
 Please run: `kubectl apply -f examples/kubernetes/transmission.yml`
 
@@ -42,30 +39,15 @@ Your prometheus instance will start scraping the metrics automatically. (if conf
 
 ### Docker Compose
 
-Example `docker-compose.yml` with Transmission also running in docker.
+[examples/docker-compose.yml](examples/docker-compose.yml) runs Transmission, the exporter and Prometheus:
 
-    transmission:
-      image: linuxserver/transmission
-      restart: always
-      ports:
-        - "127.0.0.1:9091:9091"
-        - "51413:51413"
-        - "51413:51413/udp"
-    transmission-exporter:
-      image: metalmatze/transmission-exporter
-      restart: always
-      links:
-        - transmission
-      ports:
-        - "127.0.0.1:19091:19091"
-      environment:
-        TRANSMISSION_ADDR: http://transmission:9091
+    docker compose -f examples/docker-compose.yml up
 
 ### Development
 
-    make
+    make check
 
-For development we encourage you to use `make install` instead, it's faster.
+Runs every CI check; needs [golangci-lint](https://golangci-lint.run/) on the `PATH` and a C compiler for the race detector. `make install` installs the binary.
 
 Now simply copy the `.env.example` to `.env`, like `cp .env.example .env` and set your preferences.
 Now you're good to go.

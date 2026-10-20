@@ -4,7 +4,7 @@ kind: Namespace
 metadata:
   name: transmission
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: transmission
@@ -54,7 +54,7 @@ spec:
         #     mountPath: "/downloads"
         #   - name: config
         #     mountPath: "/config"
-      - image: metalmatze/transmission-exporter
+      - image: ghcr.io/spnngl/images/transmission-exporter
         name: transmission-exporter
         imagePullPolicy: Always
         resources:
